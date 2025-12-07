@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Truck, Clock, Award, ShieldCheck, Pizza, ShoppingCart } from 'lucide-react';
+import { ArrowRight, Truck, Clock, Award, ShieldCheck, Pizza } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Header, Footer } from '@/components/layout';
 
