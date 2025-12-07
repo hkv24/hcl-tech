@@ -34,7 +34,7 @@ export function useCart() {
         setCart((prev) => ({ ...prev, isLoading: true }));
         const response = await cartAPI.addItem(data);
         setCart({
-          items: response.data.data.items,
+          items: response.data.data?.items || [],
           isLoading: false,
         });
         toast.success('Added to cart!');
@@ -81,7 +81,7 @@ export function useCart() {
         setCart((prev) => ({ ...prev, isLoading: true }));
         const response = await cartAPI.updateItem(itemId, quantity);
         setCart({
-          items: response.data.data.items,
+          items: response.data.data?.items || [],
           isLoading: false,
         });
         return { success: true };

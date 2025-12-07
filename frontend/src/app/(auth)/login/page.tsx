@@ -27,8 +27,8 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    const success = await login(data.email, data.password);
-    if (success) {
+    const result = await login(data.email, data.password);
+    if (result.success) {
       router.push('/');
     }
   };
