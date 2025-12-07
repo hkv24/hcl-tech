@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, X } from 'lucide-react';
 import { Header, Footer } from '@/components/layout';
 import { ProductList } from '@/components/product';
-import { Button, Input, Badge } from '@/components/ui';
-import { menuItems } from '@/data/menuItems';
- 
+import { Button, Input, Loader } from '@/components/ui';
+import { useProducts } from '@/hooks';
 
 const categories = [
   { id: 'all', name: 'All' },
   { id: 'pizza', name: 'Pizzas' },
+  { id: 'sides', name: 'Sides' },
   { id: 'beverages', name: 'Beverages' },
   { id: 'desserts', name: 'Desserts' },
 ];
@@ -19,8 +19,13 @@ export default function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const { products, isLoading, fetchProducts } = useProducts();
 
-  const filteredProducts = menuItems.filter((product) => {
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const filteredProducts = products.filter((product) => {
     const matchesCategory = selectedCategory === null || product.category === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -112,9 +117,9 @@ export default function MenuPage() {
             <span className="text-sm text-gray-500">Active filters:</span>
             {selectedCategory !== null && (
               <div className="flex items-center gap-1">
-                <Badge variant="info">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                   {categories.find((c) => (selectedCategory ? c.id === selectedCategory : c.id === 'all'))?.name}
-                </Badge>
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -127,7 +132,9 @@ export default function MenuPage() {
             )}
             {searchQuery && (
               <div className="flex items-center gap-1">
-                <Badge variant="default">&quot;{searchQuery}&quot;</Badge>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                  &quot;{searchQuery}&quot;
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -142,7 +149,11 @@ export default function MenuPage() {
         )}
 
         {/* Products */}
-        {filteredProducts.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-16">
+            <Loader />
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-500">No products found</p>
             <Button

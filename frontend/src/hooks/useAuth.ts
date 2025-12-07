@@ -3,16 +3,8 @@
 import { useEffect, useCallback } from 'react';
 import { useRecoilState, useSetRecoilState } from 'recoil';
 import { useRouter } from 'next/navigation';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { authState, tokenState } from '@/store';
+import { authAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export function useAuth() {
@@ -20,117 +12,111 @@ export function useAuth() {
   const setToken = useSetRecoilState(tokenState);
   const router = useRouter();
 
-  // Listen to Firebase auth state changes
+  // Check if user is already logged in
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        // User is signed in
-        const token = await firebaseUser.getIdToken();
-        localStorage.setItem('token', token);
-        setToken(token);
-        
-        setAuth({
-          user: {
-            _id: firebaseUser.uid,
-            name: firebaseUser.displayName || '',
-            email: firebaseUser.email || '',
-            phone: firebaseUser.phoneNumber || '',
-            addresses: [],
-            createdAt: firebaseUser.metadata.creationTime || '',
-            updatedAt: firebaseUser.metadata.lastSignInTime || '',
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await authAPI.getMe();
+          setAuth({
+            user: response.data.data,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+          setToken(token);
+        } catch {
+          localStorage.removeItem('token');
+          setAuth({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        }
       } else {
-        // User is signed out
-        localStorage.removeItem('token');
-        setToken(null);
         setAuth({
           user: null,
           isAuthenticated: false,
           isLoading: false,
         });
       }
-    });
+    };
 
-    return () => unsubscribe();
+    checkAuth();
   }, [setAuth, setToken]);
 
   const login = useCallback(
     async (email: string, password: string) => {
       try {
         setAuth((prev) => ({ ...prev, isLoading: true }));
-        await signInWithEmailAndPassword(auth, email, password);
+        const response = await authAPI.login({ email, password });
+        
+        const { token, user } = response.data;
+        localStorage.setItem('token', token);
+        setToken(token);
+        setAuth({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
+        });
         
         toast.success('Login successful!');
         router.push('/');
         return { success: true };
-      } catch (error: unknown) {
+      } catch (error: any) {
         setAuth((prev) => ({ ...prev, isLoading: false }));
-        const err = error as { code?: string; message?: string };
-        let message = 'Login failed';
-        
-        if (err.code === 'auth/user-not-found') {
-          message = 'No account found with this email';
-        } else if (err.code === 'auth/wrong-password') {
-          message = 'Incorrect password';
-        } else if (err.code === 'auth/invalid-email') {
-          message = 'Invalid email address';
-        } else if (err.code === 'auth/too-many-requests') {
-          message = 'Too many failed attempts. Please try again later';
-        }
-        
+        const message = error.response?.data?.message || 'Login failed';
         toast.error(message);
         return { success: false, message };
       }
     },
-    [router, setAuth]
+    [router, setAuth, setToken]
   );
 
   const register = useCallback(
     async (data: { name: string; email: string; password: string; phone: string }) => {
       try {
         setAuth((prev) => ({ ...prev, isLoading: true }));
-        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const response = await authAPI.register(data);
         
-        // Update user profile with name
-        await updateProfile(userCredential.user, {
-          displayName: data.name,
+        const { token, user } = response.data;
+        localStorage.setItem('token', token);
+        setToken(token);
+        setAuth({
+          user,
+          isAuthenticated: true,
+          isLoading: false,
         });
 
         toast.success('Registration successful!');
         router.push('/');
         return { success: true };
-      } catch (error: unknown) {
+      } catch (error: any) {
         setAuth((prev) => ({ ...prev, isLoading: false }));
-        const err = error as { code?: string; message?: string };
-        let message = 'Registration failed';
-        
-        if (err.code === 'auth/email-already-in-use') {
-          message = 'Email already registered';
-        } else if (err.code === 'auth/invalid-email') {
-          message = 'Invalid email address';
-        } else if (err.code === 'auth/weak-password') {
-          message = 'Password should be at least 6 characters';
-        }
-        
+        const message = error.response?.data?.message || 'Registration failed';
         toast.error(message);
         return { success: false, message };
       }
     },
-    [router, setAuth]
+    [router, setAuth, setToken]
   );
 
   const logout = useCallback(async () => {
     try {
-      await signOut(auth);
+      await authAPI.logout();
+      localStorage.removeItem('token');
+      setToken(null);
+      setAuth({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
       toast.success('Logged out successfully');
       router.push('/login');
     } catch {
       toast.error('Failed to log out');
     }
-  }, [router]);
+  }, [router, setAuth, setToken]);
 
   return {
     user: authStateValue.user,
